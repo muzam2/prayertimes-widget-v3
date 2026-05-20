@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   prayer_widget_info.xml
-  ─────────────────────
+  ---------------------
   Registers the widget with Android's AppWidget framework.
-  No configure activity — the JSON timetable is global to the app, so once
-  imported via MainActivity it's visible to every widget instance.
-  This is required for compatibility with Samsung Good Lock / LockStar,
-  which doesn't reliably run third-party config activities.
+
+  No configure activity and no "reconfigurable" feature flag - both must be
+  set together (the reconfigurable flag means "the user can re-open the
+  configure activity later from a menu", which is meaningless without a
+  configure attribute). Declaring reconfigurable without a configure
+  activity is what was causing Samsung's launcher to refuse to add the
+  widget with "couldn't add widget".
+
+  widgetCategory dropped the deprecated "keyguard" value - Samsung does
+  not honour it anyway and the launcher gets pickier about widget
+  metadata that references unsupported categories.
 -->
 <appwidget-provider
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -17,5 +24,4 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/prayer_widget"
     android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen|keyguard"
-    android:widgetFeatures="reconfigurable" />
+    android:widgetCategory="home_screen" />
