@@ -11,8 +11,8 @@ android {
         applicationId = "com.prayerwidget"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "3.5"
+        versionCode = 9
+        versionName = "3.6"
     }
 
     buildTypes {
