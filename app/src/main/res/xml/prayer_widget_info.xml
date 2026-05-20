@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   prayer_widget_info.xml
-  ---------------------
+
   Registers the widget with Android's AppWidget framework.
 
-  No configure activity and no "reconfigurable" feature flag - both must be
-  set together (the reconfigurable flag means "the user can re-open the
-  configure activity later from a menu", which is meaningless without a
-  configure attribute). Declaring reconfigurable without a configure
-  activity is what was causing Samsung's launcher to refuse to add the
-  widget with "couldn't add widget".
+  No configure activity and no "reconfigurable" feature flag - the two go
+  together (reconfigurable means "the user can re-open the configure
+  activity later from a menu", which is meaningless without a configure
+  attribute). Declaring reconfigurable without a configure activity is
+  what was making Samsung's launcher refuse to add the widget with
+  "couldn't add widget".
 
-  widgetCategory dropped the deprecated "keyguard" value - Samsung does
-  not honour it anyway and the launcher gets pickier about widget
+  widgetCategory dropped the deprecated "keyguard" value too - Samsung
+  doesn't honour it anyway and the launcher gets pickier about widget
   metadata that references unsupported categories.
 -->
 <appwidget-provider
