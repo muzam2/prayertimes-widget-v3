@@ -28,7 +28,6 @@
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
 
         <TextView
             android:id="@+id/tv_hijri"
@@ -105,7 +104,6 @@
                 android:textColor="#AACCCC"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.08" />
             <TextView
                 android:id="@+id/tv_fajr_time"
                 android:layout_width="wrap_content"
@@ -114,7 +112,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Sunrise -->
@@ -132,7 +129,6 @@
                 android:textColor="#AACCCC"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.08" />
             <TextView
                 android:id="@+id/tv_sunrise_time"
                 android:layout_width="wrap_content"
@@ -141,7 +137,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Zuhr (ICC convention — same prayer as Dhuhr) -->
@@ -159,7 +154,6 @@
                 android:textColor="#AACCCC"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.08" />
             <TextView
                 android:id="@+id/tv_zuhr_time"
                 android:layout_width="wrap_content"
@@ -168,7 +162,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
     </LinearLayout>
@@ -194,7 +187,6 @@
                 android:textColor="#AACCCC"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.08" />
             <TextView
                 android:id="@+id/tv_asr_time"
                 android:layout_width="wrap_content"
@@ -203,7 +195,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Maghrib -->
@@ -221,7 +212,6 @@
                 android:textColor="#AACCCC"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.08" />
             <TextView
                 android:id="@+id/tv_maghrib_time"
                 android:layout_width="wrap_content"
@@ -230,7 +220,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <!-- Isha -->
@@ -248,7 +237,6 @@
                 android:textColor="#AACCCC"
                 android:textSize="9sp"
                 android:textStyle="bold"
-                android:letterSpacing="0.08" />
             <TextView
                 android:id="@+id/tv_isha_time"
                 android:layout_width="wrap_content"
@@ -257,7 +245,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
     </LinearLayout>
