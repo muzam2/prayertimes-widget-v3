@@ -6,62 +6,81 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 /**
  * PrayerNotification
  * ──────────────────
- * Builds and posts a single ongoing notification that lists today's prayer
- * times. Because it's marked ongoing and posted with VISIBILITY_PUBLIC, Samsung
- * One UI shows it on the lock screen automatically — no LockStar, no widget
- * host quirks, no third-party hosting at all. It's just an ordinary Android
- * notification.
+ * Builds and posts a single ongoing notification with today's prayer times.
+ * Samsung One UI shows it on the lock screen automatically (VISIBILITY_PUBLIC
+ * + ongoing + CATEGORY_STATUS), so we don't need LockStar or any widget host.
  *
- * The body uses BigTextStyle so all six prayers fit when the notification is
- * expanded. The collapsed view still shows the next prayer's name and time.
- *
- * Refresh is triggered from:
- *   - PrayerTimesWidget.refreshWidget (every widget update tick)
- *   - MainActivity.saveAndRefresh
- *   - BootReceiver (so the notification reappears after a reboot)
- *   - The midnight alarm in PrayerTimesWidget
+ * EVERY public entry point swallows exceptions and logs them — a bug here
+ * must never bring down the widget receiver that calls into us, otherwise
+ * Android shows "couldn't add widget" when the user tries to drop the widget.
  */
 object PrayerNotification {
 
-    private const val CHANNEL_ID    = "prayer_times_persistent_v1"
-    private const val CHANNEL_NAME  = "Prayer times (lock screen)"
-    private const val NOTIFICATION_ID = 1001
+    private const val TAG               = "PrayerNotification"
+    private const val CHANNEL_ID        = "prayer_times_persistent_v1"
+    private const val CHANNEL_NAME      = "Prayer times (lock screen)"
+    private const val NOTIFICATION_ID   = 1001
     private const val PREFS_KEY_ENABLED = "notification_enabled"
 
-    /**
-     * Whether the persistent notification is enabled by the user.
-     * Defaults to true on first run.
-     */
     fun isEnabled(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PrayerTimesWidget.PREFS, Context.MODE_PRIVATE)
-        return prefs.getBoolean(PREFS_KEY_ENABLED, true)
+        return try {
+            context.getSharedPreferences(PrayerTimesWidget.PREFS, Context.MODE_PRIVATE)
+                .getBoolean(PREFS_KEY_ENABLED, true)
+        } catch (t: Throwable) {
+            Log.e(TAG, "isEnabled failed", t)
+            false
+        }
     }
 
     fun setEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PrayerTimesWidget.PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(PREFS_KEY_ENABLED, enabled).apply()
-        if (enabled) refresh(context) else cancel(context)
+        try {
+            context.getSharedPreferences(PrayerTimesWidget.PREFS, Context.MODE_PRIVATE)
+                .edit().putBoolean(PREFS_KEY_ENABLED, enabled).apply()
+            if (enabled) refresh(context) else cancel(context)
+        } catch (t: Throwable) {
+            Log.e(TAG, "setEnabled failed", t)
+        }
     }
 
-    /**
-     * Build and post the notification using whatever data is currently in
-     * TimetableStorage. Safe to call any number of times; replaces the
-     * existing notification by ID.
-     */
     fun refresh(context: Context) {
-        if (!isEnabled(context)) return
+        try {
+            if (!isEnabled(context)) return
+            ensureChannel(context)
+            val notif = buildNotification(context) ?: return
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notif)
+        } catch (t: Throwable) {
+            // SecurityException (no POST_NOTIFICATIONS), RemoteException, or any
+            // other Samsung quirk — log it and move on. We must never let this
+            // propagate to the widget receiver.
+            Log.e(TAG, "refresh failed", t)
+        }
+    }
 
-        ensureChannel(context)
+    fun cancel(context: Context) {
+        try {
+            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+        } catch (t: Throwable) {
+            Log.e(TAG, "cancel failed", t)
+        }
+    }
 
+    // ── Internal helpers ──────────────────────────────────────────────────────
+
+    private fun buildNotification(context: Context): android.app.Notification? {
         val prefs = context.getSharedPreferences(PrayerTimesWidget.PREFS, Context.MODE_PRIVATE)
         val city  = prefs.getString(PrayerTimesWidget.KEY_CITY, "") ?: ""
-        val times = PrayerTimesRepository.getTodaysTimes(context)
+        val times = try {
+            PrayerTimesRepository.getTodaysTimes(context)
+        } catch (t: Throwable) {
+            Log.e(TAG, "getTodaysTimes failed", t); null
+        }
 
         val title: String
         val collapsed: String
@@ -86,12 +105,10 @@ object PrayerNotification {
             title = if (next.isNotEmpty())
                 "Next: " + next + " at " + nextTime
             else
-                displayCity + " — " + times.gregorianDate
+                displayCity + " - " + times.gregorianDate
 
-            collapsed = displayCity + " — " + times.gregorianDate
+            collapsed = displayCity + " - " + times.gregorianDate
 
-            // Build the expanded body. Marker on the next prayer so it stands
-            // out even though notifications don't support per-line colour.
             val rows = listOf(
                 "Fajr"    to times.fajr,
                 "Sunrise" to times.sunrise,
@@ -101,15 +118,14 @@ object PrayerNotification {
                 "Isha"    to times.isha
             )
             val sb = StringBuilder()
-            sb.append(displayCity).append(" — ").append(times.gregorianDate).append('\n')
+            sb.append(displayCity).append(" - ").append(times.gregorianDate).append('\n')
             for ((label, time) in rows) {
-                val marker = if (label == next) "  ►  " else "     "
+                val marker = if (label == next) "  >  " else "     "
                 sb.append(marker).append(label.padEnd(8)).append(time).append('\n')
             }
             expanded = sb.toString().trimEnd()
         }
 
-        // Tap action: launch MainActivity
         val tapIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -118,7 +134,7 @@ object PrayerNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notif = NotificationCompat.Builder(context, CHANNEL_ID)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(collapsed)
@@ -132,34 +148,27 @@ object PrayerNotification {
             .setContentIntent(tapPi)
             .setColor(0xFF4CAF9F.toInt())
             .build()
-
-        try {
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notif)
-        } catch (e: SecurityException) {
-            // POST_NOTIFICATIONS not granted on Android 13+ — silently skip.
-            // MainActivity prompts for it on first open.
-        }
-    }
-
-    fun cancel(context: Context) {
-        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (mgr.getNotificationChannel(CHANNEL_ID) != null) return
-        val ch = NotificationChannel(
-            CHANNEL_ID, CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description       = "Persistent prayer-times display on the lock screen"
-            setShowBadge(false)
-            enableLights(false)
-            enableVibration(false)
-            setSound(null, null)
-            lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+        try {
+            val mgr = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (mgr.getNotificationChannel(CHANNEL_ID) != null) return
+            val ch = NotificationChannel(
+                CHANNEL_ID, CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description       = "Persistent prayer-times display on the lock screen"
+                setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+            }
+            mgr.createNotificationChannel(ch)
+        } catch (t: Throwable) {
+            Log.e(TAG, "ensureChannel failed", t)
         }
-        mgr.createNotificationChannel(ch)
     }
 }

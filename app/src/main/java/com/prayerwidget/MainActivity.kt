@@ -1,7 +1,6 @@
 package com.prayerwidget
 
 import android.Manifest
-import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
@@ -10,6 +9,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,12 +18,7 @@ import androidx.core.content.ContextCompat
 
 /**
  * MainActivity - sole setup point for the widget + notification.
- * The widget no longer uses a per-instance config activity (for Samsung
- * LockStar / Good Lock compatibility). All setup happens here:
- *   1. City name (display label)
- *   2. Import the annual timetable JSON
- *   3. Toggle the lock-screen notification on/off
- *   4. Save + force-refresh all widgets and the notification
+ * Wrapped in try/catch so a crash here cannot kill the launcher icon.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -41,31 +36,46 @@ class MainActivity : AppCompatActivity() {
     private val requestNotifPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            PrayerNotification.setEnabled(this, true)
-        } else {
-            swNotif.isChecked = false
-            PrayerNotification.setEnabled(this, false)
-            Toast.makeText(
-                this,
-                "Notifications blocked. Enable in Settings to show prayer times on the lock screen.",
-                Toast.LENGTH_LONG
-            ).show()
+        try {
+            if (granted) {
+                PrayerNotification.setEnabled(this, true)
+            } else {
+                swNotif.isChecked = false
+                PrayerNotification.setEnabled(this, false)
+                Toast.makeText(
+                    this,
+                    "Notifications blocked. Enable in Settings to show prayer times on the lock screen.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            updateNotifStatus()
+        } catch (t: Throwable) {
+            Log.e(TAG, "permission callback failed", t)
         }
-        updateNotifStatus()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(buildUi())
-        refreshStatus()
-        updateNotifStatus()
+        try {
+            setContentView(buildUi())
+            refreshStatus()
+            updateNotifStatus()
+        } catch (t: Throwable) {
+            Log.e(TAG, "onCreate failed", t)
+            // Show a fallback text view rather than crashing the activity
+            val tv = TextView(this).apply {
+                text = "Prayer Times - setup screen failed to load.\n\n" + (t.message ?: "")
+                setPadding(48, 48, 48, 48)
+                setTextColor(Color.WHITE)
+                setBackgroundColor(0xFF1A1A2E.toInt())
+            }
+            setContentView(tv)
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        // User may have changed system notification settings while away
-        updateNotifStatus()
+        try { updateNotifStatus() } catch (t: Throwable) { Log.e(TAG, "onResume failed", t) }
     }
 
     // ------- UI -----------------------------------------------------------
@@ -112,7 +122,13 @@ class MainActivity : AppCompatActivity() {
             text = "Import JSON file"
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#2A4A5E"))
-            setOnClickListener { openJson.launch(arrayOf("application/json", "*/*")) }
+            setOnClickListener {
+                try { openJson.launch(arrayOf("application/json", "*/*")) }
+                catch (t: Throwable) {
+                    Log.e(TAG, "openJson.launch failed", t)
+                    Toast.makeText(this@MainActivity, "Could not open file picker.", Toast.LENGTH_LONG).show()
+                }
+            }
         }
         root.addView(btnImport, lp().apply { bottomMargin = gap / 2 })
 
@@ -124,9 +140,9 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(tvStatus)
 
-        // Step 3: notification toggle (the real lock-screen surface)
+        // Step 3: notification toggle
         root.addView(stepLabel("Step 3: Show on lock screen"))
-        root.addView(hint("Posts a persistent notification with all prayer times. Visible on the lock screen by default - this is the most reliable way to show prayer times when the phone is locked."))
+        root.addView(hint("Posts a persistent notification with all prayer times. This is the most reliable lock-screen surface - widgets via LockStar are flaky."))
 
         val notifRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -137,10 +153,14 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             isChecked = PrayerNotification.isEnabled(this@MainActivity)
             setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) requestNotificationPermissionIfNeeded()
-                else {
-                    PrayerNotification.setEnabled(this@MainActivity, false)
-                    updateNotifStatus()
+                try {
+                    if (isChecked) requestNotificationPermissionIfNeeded()
+                    else {
+                        PrayerNotification.setEnabled(this@MainActivity, false)
+                        updateNotifStatus()
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "swNotif listener failed", t)
                 }
             }
         }
@@ -164,16 +184,18 @@ class MainActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#4CAF9F"))
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setOnClickListener { saveAndRefresh() }
+            setOnClickListener {
+                try { saveAndRefresh() }
+                catch (t: Throwable) { Log.e(TAG, "saveAndRefresh failed", t) }
+            }
         }
         root.addView(btnRefresh, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             (52 * resources.displayMetrics.density).toInt()
         ).apply { bottomMargin = gap })
 
-        // Where to find the widget
         root.addView(stepLabel("Where the widget appears"))
-        root.addView(hint("Home screen: long-press > Widgets > Prayer Times > add. Lock screen: enable the notification above - it shows automatically. Good Lock / LockStar widget hosting is unreliable for third-party widgets, so the notification is the recommended path."))
+        root.addView(hint("Home screen: long-press > Widgets > Prayer Times > add. Lock screen: enable the notification above. LockStar widget hosting is unreliable for third-party widgets."))
 
         val scroll = ScrollView(this)
         scroll.addView(root)
@@ -204,7 +226,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            // Pre-Android 13: permission is granted at install time
             PrayerNotification.setEnabled(this, true)
             updateNotifStatus()
             return
@@ -232,7 +253,6 @@ class MainActivity : AppCompatActivity() {
             enabled && !permGranted  -> "On (but system permission denied - enable in Settings)"
             else                     -> "On - check your lock screen"
         }
-        // Keep switch state honest if user revoked permission in Settings
         if (enabled && !permGranted) swNotif.isChecked = false
     }
 
@@ -247,18 +267,22 @@ class MainActivity : AppCompatActivity() {
                     ?.bufferedReader()?.use { it.readText() } ?: ""
                 if (raw.isBlank()) -1
                 else TimetableStorage.loadFromRawJson(this, raw)
-            } catch (e: Exception) { -1 }
+            } catch (e: Exception) { Log.e(TAG, "importJson failed", e); -1 }
 
             runOnUiThread {
-                btnImport.isEnabled = true
-                if (count <= 0) {
-                    tvStatus.text = "Could not read file. Check that it is the JSON produced by icc_pdf_to_json.py."
-                    Toast.makeText(this, "Import failed", Toast.LENGTH_LONG).show()
-                } else {
-                    refreshStatus()
-                    refreshAllWidgets()
-                    PrayerNotification.refresh(this)
-                    Toast.makeText(this, count.toString() + " days imported", Toast.LENGTH_SHORT).show()
+                try {
+                    btnImport.isEnabled = true
+                    if (count <= 0) {
+                        tvStatus.text = "Could not read file. Check that it is the JSON produced by icc_pdf_to_json.py."
+                        Toast.makeText(this, "Import failed", Toast.LENGTH_LONG).show()
+                    } else {
+                        refreshStatus()
+                        refreshAllWidgets()
+                        PrayerNotification.refresh(this)
+                        Toast.makeText(this, count.toString() + " days imported", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "import UI update failed", t)
                 }
             }
         }.start()
@@ -271,17 +295,27 @@ class MainActivity : AppCompatActivity() {
         getSharedPreferences(PrayerTimesWidget.PREFS, MODE_PRIVATE)
             .edit().putString(PrayerTimesWidget.KEY_CITY, city).apply()
         refreshAllWidgets()
-        PrayerNotification.refresh(this)
+        try { PrayerNotification.refresh(this) }
+        catch (t: Throwable) { Log.e(TAG, "saveAndRefresh.refresh failed", t) }
         Toast.makeText(this, "Refreshed", Toast.LENGTH_SHORT).show()
     }
 
     private fun refreshAllWidgets() {
-        val mgr = AppWidgetManager.getInstance(this)
-        val ids = mgr.getAppWidgetIds(ComponentName(this, PrayerTimesWidget::class.java))
-        for (id in ids) PrayerTimesWidget.refreshWidget(this, mgr, id)
+        try {
+            val mgr = AppWidgetManager.getInstance(this)
+            val ids = mgr.getAppWidgetIds(ComponentName(this, PrayerTimesWidget::class.java))
+            for (id in ids) {
+                try { PrayerTimesWidget.refreshWidget(this, mgr, id) }
+                catch (t: Throwable) { Log.e(TAG, "refreshWidget($id) failed", t) }
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "refreshAllWidgets failed", t)
+        }
     }
 
     private fun refreshStatus() {
         tvStatus.text = TimetableStorage.summary(this)
     }
+
+    companion object { private const val TAG = "MainActivity" }
 }
