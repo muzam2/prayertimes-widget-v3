@@ -7,7 +7,7 @@
     android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/prayer_widget"
-    android:previewImage="@drawable/ic_notification"
+    android:previewLayout="@layout/prayer_widget"
     android:description="@string/app_name"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
