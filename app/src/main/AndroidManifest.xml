@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No INTERNET permission — all data is local after JSON import -->
+    <!-- No INTERNET permission - all data is local after JSON import -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Required from Android 13 (API 33) to post any notification -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".PrayerApplication"
@@ -18,15 +20,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Widget config / JSON import screen -->
-        <activity android:name=".WidgetConfigActivity" android:exported="true"
-            android:label="Prayer Times Setup">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
-
-        <!-- AppWidget receiver -->
+        <!-- AppWidget receiver. No configure activity - JSON timetable is
+             global to the app, so any widget instance picks up the same data.
+             Required for Samsung Good Lock / LockStar compatibility. -->
         <receiver android:name=".PrayerTimesWidget" android:exported="true"
             android:label="Prayer Times">
             <intent-filter>
@@ -39,7 +35,7 @@
                 android:resource="@xml/prayer_widget_info" />
         </receiver>
 
-        <!-- Reschedule midnight alarm after reboot -->
+        <!-- Reschedule midnight alarm + repost notification after reboot -->
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

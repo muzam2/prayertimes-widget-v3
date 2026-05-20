@@ -16,10 +16,20 @@ class PrayerTimesWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, mgr: AppWidgetManager, ids: IntArray) {
         ids.forEach { refreshWidget(context, mgr, it) }
         scheduleMidnightAlarm(context)
+        // Keep the lock-screen notification in sync with widget updates
+        PrayerNotification.refresh(context)
     }
 
-    override fun onEnabled(context: Context) = scheduleMidnightAlarm(context)
-    override fun onDisabled(context: Context) = cancelMidnightAlarm(context)
+    override fun onEnabled(context: Context) {
+        scheduleMidnightAlarm(context)
+        PrayerNotification.refresh(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        cancelMidnightAlarm(context)
+        // Keep the notification alive even if all widgets are removed,
+        // since it's a separate user-controlled feature.
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
@@ -28,6 +38,7 @@ class PrayerTimesWidget : AppWidgetProvider() {
                 val mgr = AppWidgetManager.getInstance(context)
                 val ids = mgr.getAppWidgetIds(ComponentName(context, PrayerTimesWidget::class.java))
                 ids.forEach { refreshWidget(context, mgr, it) }
+                PrayerNotification.refresh(context)
                 if (intent.action == ACTION_MIDNIGHT) scheduleMidnightAlarm(context)
             }
         }
@@ -54,7 +65,6 @@ class PrayerTimesWidget : AppWidgetProvider() {
         fun buildViews(context: Context, times: PrayerTimes?, city: String): RemoteViews {
             val v = RemoteViews(context.packageName, R.layout.prayer_widget)
 
-            // Refresh button taps
             val pi = PendingIntent.getBroadcast(
                 context, 0,
                 Intent(context, PrayerTimesWidget::class.java).apply { action = ACTION_REFRESH },
@@ -65,7 +75,7 @@ class PrayerTimesWidget : AppWidgetProvider() {
             if (times == null) {
                 v.setTextViewText(R.id.tv_date,  "No timetable loaded")
                 v.setTextViewText(R.id.tv_hijri, "Open app to import JSON")
-                v.setTextViewText(R.id.tv_city,  city.ifEmpty { "—" })
+                v.setTextViewText(R.id.tv_city,  city.ifEmpty { "-" })
                 v.setTextViewText(R.id.tv_status, "")
                 for (id in listOf(
                     R.id.tv_fajr_time, R.id.tv_sunrise_time, R.id.tv_zuhr_time,
@@ -80,7 +90,7 @@ class PrayerTimesWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.tv_city,         times.city.ifEmpty { city })
             v.setTextViewText(R.id.tv_fajr_time,    times.fajr)
             v.setTextViewText(R.id.tv_sunrise_time, times.sunrise)
-            v.setTextViewText(R.id.tv_zuhr_time,    times.dhuhr)   // field named dhuhr, displayed as Zuhr
+            v.setTextViewText(R.id.tv_zuhr_time,    times.dhuhr)
             v.setTextViewText(R.id.tv_asr_time,     times.asr)
             v.setTextViewText(R.id.tv_maghrib_time, times.maghrib)
             v.setTextViewText(R.id.tv_isha_time,    times.isha)
@@ -93,7 +103,7 @@ class PrayerTimesWidget : AppWidgetProvider() {
             listOf(
                 Row(R.id.tv_fajr_time,    R.id.tv_fajr_label,    "Fajr"),
                 Row(R.id.tv_sunrise_time, R.id.tv_sunrise_label, "Sunrise"),
-                Row(R.id.tv_zuhr_time,    R.id.tv_zuhr_label,    "Zuhr"),   // ICC convention
+                Row(R.id.tv_zuhr_time,    R.id.tv_zuhr_label,    "Zuhr"),
                 Row(R.id.tv_asr_time,     R.id.tv_asr_label,     "Asr"),
                 Row(R.id.tv_maghrib_time, R.id.tv_maghrib_label, "Maghrib"),
                 Row(R.id.tv_isha_time,    R.id.tv_isha_label,    "Isha")
