@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  prayer_widget_info.xml
+  ─────────────────────
+  Registers the widget with Android's AppWidget framework.
+
+  minWidth / minHeight: minimum space the widget requests.
+  targetCellWidth / targetCellHeight: suggested grid cells (4×3 on a typical lock screen).
+  updatePeriodMillis: Android minimum is 1800000 (30 min); we rely on WorkManager for smarter
+                      scheduling (midnight refresh + retry on network), so this is a fallback only.
+  widgetCategory: both home_screen AND keyguard (lock screen).
+  widgetFeatures: reconfigurable = user can edit city without re-adding the widget.
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/prayer_widget"
+    android:configure="com.prayerwidget.WidgetConfigActivity"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen|keyguard"
+    android:widgetFeatures="reconfigurable" />

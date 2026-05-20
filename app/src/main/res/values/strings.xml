@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Prayer Times</string>
+    <string name="widget_description">Daily Islamic prayer times (18° calculation — Islam21c methodology)</string>
+</resources>
