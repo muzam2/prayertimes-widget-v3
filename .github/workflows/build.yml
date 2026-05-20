@@ -17,6 +17,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Generate Gradle wrapper
+        working-directory: PrayerTimesWidget_v3
+        run: gradle wrapper --gradle-version 8.6
+
       - name: Build debug APK
         working-directory: PrayerTimesWidget_v3
         run: ./gradlew assembleDebug --no-daemon
